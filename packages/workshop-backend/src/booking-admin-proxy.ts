@@ -1,21 +1,6 @@
-import type { JWTPayload } from "jose";
-import { verifyCfAccessJwt } from "./access.js";
+import { isVerifiedDeploymentAdmin, type DeploymentAdminEnv } from "./deployment-admin.js";
 
-type BookingAdminEnv = {
-  BOOKING_ADMIN_BASE_URL?: string;
-  CF_ACCESS_AUD?: string;
-  ADMINS?: string[] | string;
-  CF_ACCESS_ISS?: string;
-};
-
-function isDeploymentAdmin(email: string, env: BookingAdminEnv): boolean {
-  let admins = env.ADMINS;
-  if (!admins) return false;
-  if (typeof admins === "string") {
-    try { admins = JSON.parse(admins) as string[]; } catch { return false; }
-  }
-  return Array.isArray(admins) && admins.includes(email);
-}
+type BookingAdminEnv = DeploymentAdminEnv & { BOOKING_ADMIN_BASE_URL?: string };
 
 async function forward(req: Request, env: BookingAdminEnv, path: string, accessAssertion: string): Promise<Response> {
   if (!env.BOOKING_ADMIN_BASE_URL) return new Response("Booking administration is not configured.", { status: 503 });
@@ -39,8 +24,7 @@ export async function handleBookingAdminRequest(
     return new Response("Booking administration requires Cloudflare Access.", { status: 403 });
   }
   let accessAssertion = req.headers.get("cf-access-jwt-assertion");
-  let payload: JWTPayload | null = await verifyCfAccessJwt(req, env);
-  if (!accessAssertion || typeof payload?.email !== "string" || !isDeploymentAdmin(payload.email, env)) {
+  if (!accessAssertion || !await isVerifiedDeploymentAdmin(req, env)) {
     return new Response("Booking administration is restricted to deployment administrators.", { status: 403 });
   }
   let bookingPath = url.pathname.slice("/api/booking-admin".length) || "/";
