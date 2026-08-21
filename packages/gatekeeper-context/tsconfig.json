@@ -5,6 +5,7 @@
     "lib": ["ESNext"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "rootDir": "../..",
     "types": ["./worker-configuration.d.ts", "node"],
     "paths": {
       "@gadgets/workshop-shared/*": ["../workshop-shared/src/*"],
