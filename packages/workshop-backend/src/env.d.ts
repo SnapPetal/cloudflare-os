@@ -50,6 +50,13 @@ declare global {
       // weakening it to optional in a merged augmentation. Self-hosted deployments may omit the
       // binding, so use sites read it as `BrowserRun | undefined` and null-check.
 
+      // Private vector-store explorer mounted through the Access-protected Workshop admin UI.
+      S3V_EXPLORER?: Fetcher;
+
+      // Server-side bridge to the Spring booking service. Access JWTs are forwarded; no booking
+      // password is stored in Cloudflare.
+      BOOKING_ADMIN_BASE_URL?: string;
+
       // ---------------------------------------------------------------------------------------------
       // Optional features: sign-in via authentication gatekeepers + AI Gateway billing (free-tier
       // limits / top-up). All OFF by default; existing password / Cloudflare Access deployments are

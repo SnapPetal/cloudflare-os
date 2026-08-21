@@ -25,6 +25,8 @@ import { RpcStub as NativeRpcStub } from "cloudflare:workers";
 import { recordAnalytics } from "./analytics";
 import { handleClientErrorRequest } from "./client-errors.js";
 import { verifyCfAccessJwt } from "./access.js";
+import { handleBookingAdminRequest } from "./booking-admin-proxy.js";
+import { handleVectorStoreRequest } from "./vector-store-proxy.js";
 import { resolveUiFeatureFlags } from "./feature-flags";
 import { serveSiteLogo, SITE_LOGO_PATH } from "./site-logo.js";
 import { createWorkshopLogger } from "./observability";
@@ -811,6 +813,14 @@ export default {
 
     if (url.pathname === "/api/client-errors") {
       return handleClientErrorRequest(req, env, ctx);
+    }
+
+    if (url.pathname === "/vector-store" || url.pathname.startsWith("/vector-store/")) {
+      return handleVectorStoreRequest(req, env, url);
+    }
+
+    if (url.pathname.startsWith("/api/booking-admin/")) {
+      return handleBookingAdminRequest(req, env, url);
     }
 
     if (url.pathname === "/api") {
