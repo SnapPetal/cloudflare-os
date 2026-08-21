@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { RpcStub } from 'capnweb'
 import { Switch, Textarea, Input, Button, Tabs, useKumoToastManager } from '@cloudflare/kumo'
-import { Database, Hexagon, ShieldWarning, UserPlus } from '@phosphor-icons/react'
+import { Hexagon, ShieldWarning, UserPlus } from '@phosphor-icons/react'
 import { useAuthenticatedApi } from './AuthContext'
 import { AdminApi, AdminFormat, AdminResourceVendor, AmbientGatekeeperMode, MAX_INSTANCE_INSTRUCTIONS_LENGTH, MAX_ANNOUNCEMENT_LENGTH, MAX_SITE_NAME_LENGTH, DEFAULT_SITE_NAME, BannerColor, BANNER_COLORS, DEFAULT_BANNER_COLOR } from '@gadgets/workshop-shared/api'
 import { applyAccentColor, DEFAULT_ACCENT_COLOR } from './theme'
@@ -10,6 +10,7 @@ import SiteLogo from './components/SiteLogo'
 import { useDocumentTitle } from './useDocumentTitle'
 import AdminFormatsPanel from './components/format/AdminFormatsPanel'
 import BookingAdminPanel from './components/BookingAdminPanel'
+import VectorStoreAdminPanel from './components/VectorStoreAdminPanel'
 
 // Preset accent colors offered in the Theme section ('' = default brand).
 const ACCENT_PRESETS: { label: string; value: string }[] = [
@@ -423,34 +424,7 @@ export default function AdminPage() {
       {activeTab === 'booking' && <BookingAdminPanel />}
 
       {/* Vector Store */}
-      {activeTab === 'vectors' && (
-        <div className="bg-kumo-elevated border border-kumo-line rounded-xl p-6">
-          <div className="flex items-start gap-4">
-            <div className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center bg-kumo-tint">
-              <Database size={18} className="text-kumo-subtle" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-semibold text-kumo-strong">Skatetricks Knowledge</h2>
-              <p className="text-sm text-kumo-subtle mt-1">
-                Inspect skatetricks embeddings, query similar attempts, and remove individual vectors.
-                The explorer keeps AWS credentials server-side in its own Worker.
-              </p>
-              <a
-                href="/vector-store/"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex mt-4 px-4 py-2 rounded-lg bg-kumo-brand text-white text-sm font-medium hover:opacity-90"
-              >
-                Open Knowledge Explorer
-              </a>
-              <p className="text-xs text-kumo-subtle mt-3">
-                Deleting vectors is permanent. Index recreation remains an infrastructure operation,
-                outside this UI.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {activeTab === 'vectors' && <VectorStoreAdminPanel />}
 
       {/* Sign-ups */}
       {activeTab === 'access' && (
