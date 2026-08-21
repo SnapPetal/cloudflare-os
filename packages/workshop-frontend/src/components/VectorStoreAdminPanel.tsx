@@ -21,6 +21,7 @@ export default function VectorStoreAdminPanel() {
   const toasts = useKumoToastManager()
   const toastsRef = useRef(toasts)
   const [indexes, setIndexes] = useState<string[]>([])
+  const [bucket, setBucket] = useState('')
   const [index, setIndex] = useState('')
   const [vectors, setVectors] = useState<Vector[]>([])
   const [selected, setSelected] = useState<Vector | null>(null)
@@ -28,25 +29,29 @@ export default function VectorStoreAdminPanel() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
 
-  const loadVectors = useCallback(async (nextIndex: string) => {
+  const loadVectors = useCallback(async (nextIndex: string, nextBucket = bucket) => {
     if (!nextIndex) { setVectors([]); setSelected(null); return }
     setBusy('load')
     try {
-      setVectors(await request<Vector[]>(`/vectors?bucket=thonbecker-vectors&index=${encodeURIComponent(nextIndex)}`))
+      setVectors(await request<Vector[]>(`/vectors?bucket=${encodeURIComponent(nextBucket)}&index=${encodeURIComponent(nextIndex)}`))
       setSelected(null)
     } catch (error) {
       toastsRef.current.add({ title: error instanceof Error ? error.message : 'Failed to load vectors', variant: 'error' })
     } finally { setBusy(null) }
-  }, [])
+  }, [bucket])
 
   const loadIndexes = useCallback(async () => {
     setLoading(true)
     try {
-      const values = await request<string[]>('/indexes?bucket=thonbecker-vectors')
+      const buckets = await request<string[]>('/buckets')
+      const nextBucket = buckets[0] ?? ''
+      if (!nextBucket) throw new Error('The vector Worker has no configured bucket.')
+      setBucket(nextBucket)
+      const values = await request<string[]>(`/indexes?bucket=${encodeURIComponent(nextBucket)}`)
       setIndexes(values)
       const nextIndex = values.includes(index) ? index : values[0] ?? ''
       setIndex(nextIndex)
-      await loadVectors(nextIndex)
+      await loadVectors(nextIndex, nextBucket)
     } catch (error) {
       toastsRef.current.add({ title: error instanceof Error ? error.message : 'Failed to load vector indexes', variant: 'error' })
     } finally { setLoading(false) }
@@ -61,7 +66,7 @@ export default function VectorStoreAdminPanel() {
       await request('/vectors', {
         method: 'DELETE',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ bucket: 'thonbecker-vectors', index, key: selected.key }),
+        body: JSON.stringify({ bucket, index, key: selected.key }),
       })
       toastsRef.current.add({ title: 'Vector deleted', variant: 'success' })
       await loadVectors(index)
