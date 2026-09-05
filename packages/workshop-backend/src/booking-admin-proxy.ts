@@ -1,4 +1,4 @@
-import { isVerifiedDeploymentAdmin, type DeploymentAdminEnv } from "./deployment-admin.js";
+import { isSamePublicOrigin, isVerifiedDeploymentAdmin, type DeploymentAdminEnv } from "./deployment-admin.js";
 
 type BookingAdminEnv = DeploymentAdminEnv & { BOOKING_ADMIN_BASE_URL?: string };
 
@@ -19,8 +19,7 @@ async function forward(req: Request, env: BookingAdminEnv, path: string, accessA
 
 export async function handleBookingAdminRequest(
   req: Request, env: BookingAdminEnv, url: URL): Promise<Response> {
-  let origin = req.headers.get("Origin");
-  if (!env.CF_ACCESS_AUD || origin && origin !== url.origin) {
+  if (!env.CF_ACCESS_AUD || !isSamePublicOrigin(req, url, env)) {
     return new Response("Booking administration requires Cloudflare Access.", { status: 403 });
   }
   let accessAssertion = req.headers.get("cf-access-jwt-assertion");
