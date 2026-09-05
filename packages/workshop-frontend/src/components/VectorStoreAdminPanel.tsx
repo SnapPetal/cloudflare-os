@@ -7,7 +7,7 @@ type Vector = { key?: string; data: number[]; metadata: unknown }
 const API = '/vector-store/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API}${path}`, options)
+  const response = await fetch(`${API}${path}`, { cache: 'no-store', ...options })
   let body: unknown
   try { body = await response.json() } catch { throw new Error(`Vector service returned ${response.status}`) }
   if (!response.ok) {
@@ -89,6 +89,7 @@ export default function VectorStoreAdminPanel() {
 
     <section className="bg-kumo-elevated border border-kumo-line rounded-xl p-5 space-y-4">
       <div className="flex flex-wrap items-end gap-3">
+        <p className="w-full text-xs text-kumo-subtle">Vector bucket: <span className="font-mono text-kumo-default">{bucket || 'Loading...'}</span></p>
         <label className="text-sm text-kumo-default">Index<select value={index} onChange={(event) => { setIndex(event.target.value); void loadVectors(event.target.value) }} disabled={loading || !indexes.length} className="mt-1 block rounded-lg border border-kumo-line bg-kumo-base px-3 py-2 text-sm"><option value="">Choose an index</option>{indexes.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
         <label className="text-sm text-kumo-default flex-1 min-w-52">Filter<input type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Key or metadata" className="mt-1 block w-full rounded-lg border border-kumo-line bg-kumo-base px-3 py-2 text-sm" /></label>
         <button type="button" onClick={() => void loadIndexes()} disabled={busy !== null} className="rounded-lg border border-kumo-line px-4 py-2 text-sm text-kumo-default disabled:opacity-50">Refresh</button>
