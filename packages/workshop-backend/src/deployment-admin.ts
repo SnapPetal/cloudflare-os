@@ -1,6 +1,15 @@
 import { verifyCfAccessJwt, type CfAccessEnv } from "./access.js";
 
-export type DeploymentAdminEnv = CfAccessEnv & { ADMINS?: string[] | string };
+export type DeploymentAdminEnv = CfAccessEnv & {
+  ADMINS?: string[] | string;
+  /** Public router origin; service bindings otherwise rewrite request URLs to an internal origin. */
+  PUBLIC_BASE_URL?: string;
+};
+
+export function isSamePublicOrigin(request: Request, url: URL, env: DeploymentAdminEnv): boolean {
+  const origin = request.headers.get("Origin");
+  return !origin || origin === (env.PUBLIC_BASE_URL || url.origin);
+}
 
 export function isDeploymentAdmin(email: string, env: DeploymentAdminEnv): boolean {
   let admins = env.ADMINS;
