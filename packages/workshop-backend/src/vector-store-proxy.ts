@@ -1,10 +1,9 @@
-import { isVerifiedDeploymentAdmin, type DeploymentAdminEnv } from "./deployment-admin.js";
+import { isSamePublicOrigin, isVerifiedDeploymentAdmin, type DeploymentAdminEnv } from "./deployment-admin.js";
 
 type VectorStoreAdminEnv = DeploymentAdminEnv & { S3V_EXPLORER?: Fetcher };
 
 export async function handleVectorStoreRequest(req: Request, env: VectorStoreAdminEnv, url: URL): Promise<Response> {
-  let origin = req.headers.get("Origin");
-  if (!env.CF_ACCESS_AUD || origin && origin !== url.origin) {
+  if (!env.CF_ACCESS_AUD || !isSamePublicOrigin(req, url, env)) {
     return new Response("Vector administration requires Cloudflare Access.", { status: 403 });
   }
   if (!await isVerifiedDeploymentAdmin(req, env)) {
