@@ -24,6 +24,7 @@ import { ExternalMessageGateway } from "./external-message-gateway";
 import { RpcStub as NativeRpcStub } from "cloudflare:workers";
 import { recordAnalytics } from "./analytics";
 import { handleClientErrorRequest } from "./client-errors.js";
+import { isSamePublicOrigin } from "./deployment-admin.js";
 import { verifyCfAccessJwt } from "./access.js";
 import { handleBookingAdminRequest } from "./booking-admin-proxy.js";
 import { handleVectorStoreRequest } from "./vector-store-proxy.js";
@@ -850,7 +851,7 @@ export default {
       let accessPayload: JWTPayload | undefined;
 
       if (env.CF_ACCESS_AUD) {
-        if (req.headers.get("Origin") !== url.origin) {
+        if (!isSamePublicOrigin(req, url, env)) {
           return new Response("Cross-origin API access not allowed.", { status: 403 });
         }
 
