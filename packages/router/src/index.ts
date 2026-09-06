@@ -35,6 +35,7 @@ export default {
     }
 
     if (url.pathname === "/api" || url.pathname.startsWith("/api/") ||
+        url.pathname === "/vector-store" || url.pathname.startsWith("/vector-store/") ||
         url.pathname === "/blueprint-screenshot" ||
         url.pathname.startsWith("/blueprint-screenshot/")) {
       return env.WORKSHOP_BACKEND.fetch(req);

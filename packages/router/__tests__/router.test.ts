@@ -24,10 +24,12 @@ async function route(env: Env, path: string): Promise<string> {
 }
 
 describe('router fetch', () => {
-  it('routes /api and /blueprint-screenshot prefixes to the backend', async () => {
+  it('routes backend API prefixes to the backend', async () => {
     const env = makeEnv({ ASSETS: stubFetcher('assets') });
     expect(await route(env, '/api')).toBe('backend');
     expect(await route(env, '/api/workshop')).toBe('backend');
+    expect(await route(env, '/vector-store')).toBe('backend');
+    expect(await route(env, '/vector-store/api/buckets')).toBe('backend');
     expect(await route(env, '/blueprint-screenshot')).toBe('backend');
     expect(await route(env, '/blueprint-screenshot/abc')).toBe('backend');
   });
