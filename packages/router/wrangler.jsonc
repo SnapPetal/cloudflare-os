@@ -24,6 +24,8 @@
     "run_worker_first": [
       "/api",
       "/api/*",
+      "/vector-store",
+      "/vector-store/*",
       "/blueprint-screenshot",
       "/blueprint-screenshot/*",
       "/gatekeeper/*"
