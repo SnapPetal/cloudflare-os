@@ -112,10 +112,12 @@ describe('router email', () => {
 describe('wrangler.jsonc contract', () => {
   const config = parse(wranglerConfigText);
 
-  it('runs the worker first for API, screenshot, and gatekeeper prefixes', () => {
+  it('runs the worker first for API, vector, screenshot, and gatekeeper prefixes', () => {
     const first: string[] = config.assets.run_worker_first;
     expect(first).toContain('/api');
     expect(first).toContain('/api/*');
+    expect(first).toContain('/vector-store');
+    expect(first).toContain('/vector-store/*');
     expect(first).toContain('/blueprint-screenshot');
     expect(first).toContain('/blueprint-screenshot/*');
     expect(first).toContain('/gatekeeper/*');
