@@ -63,10 +63,10 @@ export default function VectorStoreAdminPanel() {
     if (!selected || !index || !window.confirm(`Permanently delete vector ${selected.key}?`)) return
     setBusy(`delete-${selected.key}`)
     try {
-      await request('/vectors', {
+      await request(`/vectors?bucket=${encodeURIComponent(bucket)}&index=${encodeURIComponent(index)}`, {
         method: 'DELETE',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ bucket, index, key: selected.key }),
+        body: JSON.stringify({ key: selected.key }),
       })
       toastsRef.current.add({ title: 'Vector deleted', variant: 'success' })
       await loadVectors(index)
