@@ -6,6 +6,13 @@ type Vector = { key?: string; data: number[]; metadata: unknown }
 
 const API = '/vector-store/api'
 
+const metadataEntries = (metadata: unknown): Array<[string, string]> => {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return [['Value', JSON.stringify(metadata)]]
+  }
+  return Object.entries(metadata).map(([key, value]) => [key, JSON.stringify(value)])
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, { cache: 'no-store', ...options })
   let body: unknown
@@ -77,6 +84,8 @@ export default function VectorStoreAdminPanel() {
 
   const query = filter.toLowerCase()
   const visible = vectors.filter((vector) => `${vector.key ?? ''} ${JSON.stringify(vector.metadata)}`.toLowerCase().includes(query))
+  const dimensions = [...new Set(vectors.map((vector) => vector.data.length).filter(Boolean))]
+  const metadataKeys = new Set(vectors.flatMap((vector) => metadataEntries(vector.metadata).map(([key]) => key)))
 
   return <div className="space-y-6">
     <div className="flex items-start justify-between gap-4">
@@ -94,15 +103,23 @@ export default function VectorStoreAdminPanel() {
         <label className="text-sm text-kumo-default flex-1 min-w-52">Filter<input type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Key or metadata" className="mt-1 block w-full rounded-lg border border-kumo-line bg-kumo-base px-3 py-2 text-sm" /></label>
         <button type="button" onClick={() => void loadIndexes()} disabled={busy !== null} className="rounded-lg border border-kumo-line px-4 py-2 text-sm text-kumo-default disabled:opacity-50">Refresh</button>
       </div>
+      <div aria-label="Index summary" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-lg border border-kumo-line bg-kumo-base p-3"><p className="text-xs text-kumo-subtle">Records shown</p><p className="mt-1 text-lg font-semibold text-kumo-strong">{vectors.length}</p></div>
+        <div className="rounded-lg border border-kumo-line bg-kumo-base p-3"><p className="text-xs text-kumo-subtle">Matching filter</p><p className="mt-1 text-lg font-semibold text-kumo-strong">{visible.length}</p></div>
+        <div className="rounded-lg border border-kumo-line bg-kumo-base p-3"><p className="text-xs text-kumo-subtle">Embedding dimensions</p><p className="mt-1 text-lg font-semibold text-kumo-strong">{dimensions.length === 1 ? dimensions[0] : dimensions.length ? 'Mixed' : '—'}</p></div>
+        <div className="rounded-lg border border-kumo-line bg-kumo-base p-3"><p className="text-xs text-kumo-subtle">Metadata fields</p><p className="mt-1 text-lg font-semibold text-kumo-strong">{metadataKeys.size}</p></div>
+      </div>
+      <p className="text-xs text-kumo-subtle">Each record pairs a key with an embedding and its metadata. The embedding is represented by its dimensions; source content appears only when the writer stored it as metadata.</p>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)]">
         <div className="max-h-96 overflow-y-auto rounded-lg border border-kumo-line">
+          <p className="border-b border-kumo-line px-4 py-3 text-xs font-medium text-kumo-subtle">Vector records</p>
           {busy === 'load' && <p className="p-4 text-sm text-kumo-subtle">Loading vectors...</p>}
           {!busy && !visible.length && <p className="p-4 text-sm text-kumo-subtle">No vectors found.</p>}
           {visible.map((vector) => <button type="button" key={vector.key} onClick={() => setSelected(vector)} className={`flex w-full items-center justify-between gap-3 border-b border-kumo-line px-4 py-3 text-left last:border-0 ${selected?.key === vector.key ? 'bg-kumo-tint' : 'hover:bg-kumo-tint'}`}><span className="min-w-0 truncate text-sm text-kumo-strong">{vector.key ?? '(unnamed vector)'}</span><span className="shrink-0 text-xs text-kumo-subtle">{vector.data.length}d</span></button>)}
         </div>
         <div className="rounded-lg border border-kumo-line p-4">
-          {!selected && <p className="text-sm text-kumo-subtle">Select a vector to inspect its metadata.</p>}
-          {selected && <><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="break-all text-sm font-semibold text-kumo-strong">{selected.key}</h3><p className="mt-1 text-xs text-kumo-subtle">{selected.data.length} dimensions</p></div><button type="button" onClick={() => void deleteVector()} disabled={busy === `delete-${selected.key}`} className="inline-flex shrink-0 items-center gap-1 text-sm text-kumo-danger hover:underline disabled:opacity-50"><Trash size={15} />Delete</button></div><pre className="mt-4 max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs text-kumo-subtle">{JSON.stringify(selected.metadata, null, 2)}</pre></>}
+          {!selected && <p className="text-sm text-kumo-subtle">Select a record to inspect its key, dimensions, and metadata.</p>}
+          {selected && <><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-medium text-kumo-subtle">Selected record</p><h3 className="break-all text-sm font-semibold text-kumo-strong">{selected.key}</h3><p className="mt-1 text-xs text-kumo-subtle">{selected.data.length} dimensions</p></div><button type="button" onClick={() => void deleteVector()} disabled={busy === `delete-${selected.key}`} className="inline-flex shrink-0 items-center gap-1 text-sm text-kumo-danger hover:underline disabled:opacity-50"><Trash size={15} />Delete</button></div><dl className="mt-4 divide-y divide-kumo-line rounded-lg border border-kumo-line">{metadataEntries(selected.metadata).map(([key, value]) => <div key={key} className="grid gap-1 px-3 py-2 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] sm:gap-3"><dt className="break-words text-xs font-medium text-kumo-subtle">{key}</dt><dd className="break-words text-xs text-kumo-default">{value}</dd></div>)}</dl></>}
         </div>
       </div>
     </section>
