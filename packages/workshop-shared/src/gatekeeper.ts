@@ -257,6 +257,12 @@ export type SupportedResource = {
    * If omitted/false, the resource type is not separately grantable.
    */
   grantable?: boolean;
+
+  /**
+   * If true, an agent may create a new resource of this type with the createExternalResource tool
+   * (see GatekeeperVendor.createResource()).
+   */
+  creatable?: boolean;
 }
 
 /** Removes every trailing slash from a string in linear time. */
@@ -554,6 +560,21 @@ export interface GatekeeperVendor extends WorkerEntrypoint {
    * RPC stubs cannot report optional-method presence.
    */
   createAccount?(): Promise<Fetcher<GatekeeperUser>>;
+
+  /**
+   * Get a gatekeeper class simulating a NEW resource of the creatable type `resourceUrlPattern`,
+   * titled `title`, and the `action` that creates it. Like createAccount(), this takes no user
+   * identity, so the class belongs to no account: it simulates the resource locally, with no
+   * account to reach the provider through, though it may still be asked to describe() itself.
+   * Creates nothing. The Overseer queues `action` as the creation, which applies before anything
+   * else queued on the gatekeeper, through Gatekeeper.applyCreation() once a user approves it.
+   * Present only on vendors with a `creatable` resource type.
+   */
+  createResource?(resourceUrlPattern: string, title: string): Promise<{
+    class: DurableObjectClass<Gatekeeper<any>>;
+    resource: SupportedResource;
+    action: ActionDescription;
+  }>;
 }
 
 export interface GatekeeperConnectCallback extends WorkerEntrypoint {
@@ -749,9 +770,9 @@ export interface GatekeeperUser extends WorkerEntrypoint {
 }
 
 /**
- * Opaque object representing the capability to verify whether a particular user is able to access
- * a particular Gatekeeper. Minted by `GatekeeperUser`, and then passed to
- * `Gatekeeper.addObserver()` and possibly other future interfaces.
+ * Opaque object representing one of a user's accounts. Minted by `GatekeeperUser`, and then passed
+ * to `Gatekeeper.addObserver()`, to verify whether the user is able to access a particular
+ * Gatekeeper, and to `Gatekeeper.applyCreation()`, to create a resource with the account's authority.
  *
  * At present, this interface has no methods, because it is merely meant to be passed back to the
  * Gatekeeper that created it.
@@ -759,9 +780,10 @@ export interface GatekeeperUser extends WorkerEntrypoint {
  * IMPLEMENTATION NOTE: As of this writing, there is no runtime-supported way to "unwrap" a
  * `Fetcher` passed back to its implementer in order to extract the underlying `props`. This will
  * be added eventually. For now, we recommend that the `GatekeeperUserVerifier` implement a public
- * but non-standard method which the same gatekeeper's `addObserver()` implementations can call.
- * The overseer promises only to pass a `GatekeeperUserVerifier` object back to the same gatekeeper
- * that created it, so addObserver() can then call that non-standard method and trust the results.
+ * but non-standard method which the same gatekeeper's `addObserver()` and `applyCreation()`
+ * implementations can call. The overseer promises only to pass a `GatekeeperUserVerifier` object
+ * back to the same gatekeeper that created it, so they can then call that non-standard method and
+ * trust the results.
  */
 export interface GatekeeperUserVerifier extends WorkerEntrypoint {}
 
@@ -771,6 +793,13 @@ export interface GatekeeperUserVerifier extends WorkerEntrypoint {}
  *
  * The Gatekeeper executes as a Durable Object Facet, where it is a child of the Overseer. This
  * interface is exposed to the Overseer, not directly to the Gadget.
+ *
+ * A Gatekeeper may mint persistent stubs to itself with `this.ctx.restore(params)` and a
+ * `[restore](params)` method (see `ApprovalQueue.bindHook()`), e.g. for its worker's push handler
+ * to deliver events through. They keep restoring until the connection is removed from the
+ * workspace, and reach whatever `[restore]()` returns: return a target narrowed to the stub's
+ * purpose, never the Gatekeeper itself (which answers Overseer-only calls such as `applyAction()`),
+ * and keep the stubs within the gatekeeper's own worker.
  */
 export interface Gatekeeper<Session> extends DurableObject {
   /**
@@ -945,6 +974,21 @@ export interface Gatekeeper<Session> extends DurableObject {
    * The Overseer will take care of the restart, possibly after rejecting other actions.
    */
   rejectAction(action: number): Promise<void | {restart?: boolean}>;
+
+  /**
+   * For a gatekeeper from GatekeeperVendor.createResource(): a user approved its creation, so
+   * create the resource at the provider through the account they chose, whose verifier is
+   * `creator`. Returns the class to use from then on, imbued with the real resource as that
+   * account's getGatekeeperClassFor() would return it, and the resource's URL. The Overseer
+   * restarts this facet on that class before anything else reaches it; storage carries over, so
+   * actions queued against the simulated resource apply through the new class. Should be
+   * idempotent, for the same reason as applyAction().
+   *
+   * If the user rejects the creation instead, the Overseer removes this gatekeeper, rejecting
+   * its queued actions without calling rejectAction(): its storage is deleted with it.
+   */
+  applyCreation?(creator: Fetcher<GatekeeperUserVerifier>)
+      : Promise<{class: DurableObjectClass<Gatekeeper<any>>, resourceUrl: string}>;
 
   /**
    * Attempts to revert an action that was already applied.
@@ -1207,12 +1251,17 @@ export type ObservationDescription = {
    * - Every collaborator must pass this gatekeeper's `addObserver()` to open the gadget, so a
    *   gatekeeper whose `addObserver()` always throws makes the gadget effectively unshareable
    *   once it has made one of these observations.
-   * - Once observed, the gadget enters a restricted mode: no more actions or public-web fetches,
-   *   only observations, so the gadget cannot leak the data through other gatekeepers.
+   * - Once observed, the gadget enters a restricted mode: no public-web fetches, and every action
+   *   requires manual approval -- auto-approval rules are suspended. The approver is shown the
+   *   action's full `description` and is responsible for checking it contains none of the
+   *   restricted data. An action whose description is not complete
+   *   (`ActionDescription.descriptionIsComplete`) is accepted and flagged to the approver; only
+   *   git pushes are refused. The kernel does not restrict which connections may be acted on.
    *
    * TODO(someday): The restricted mode is a blunt instrument. It should be possible to perform
-   *   actions whose visibility is limited to people verified to have access to the same data,
-   *   but this requires a more complex policy framework to compute.
+   *   actions whose visibility is limited to people verified to have access to the same data: an
+   *   action should declare who can see its effects, and each restricted producer verify that
+   *   every such person can already see the data.
    */
   containsRestrictedData?: boolean;
 
@@ -1630,9 +1679,14 @@ export interface GitCache extends RpcTarget {
   buildPack(): Promise<ReadableStream<Uint8Array>>;
 
   /**
-   * Consumes a standard git packfile and inserts all the objects within into the git cache. This
-   * is exactly equivalent to if the Gatekeeper decoded the packfile itself and `put()` each object
-   * into the cache.
+   * Consumes a standard git packfile, storing each object in it as `put()` would, and returns
+   * the oids of those now in the cache. An object too large to store is measured and left out of
+   * the result rather than thrown on, which is how a `gitPull()` notices it.
+   *
+   * The pack is decoded in one pass, so a delta must follow its base, as in every pack
+   * `git upload-pack` sends. Objects are stored as the pack streams in, and its commits last,
+   * once the rest has verified and been stored: a pack that fails can leave some of its objects
+   * stored, but not a commit without the trees that came with it.
    */
   consumePack(pack: ReadableStream<Uint8Array>): Promise<GitOid[]>;
 

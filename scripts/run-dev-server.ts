@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import { parse } from "jsonc-parser";
 import { resolveBinEntry } from "./bin-entry.ts";
 import { getDevServerConfig } from "./dev-server-config.ts";
+import { generateWorkerConfigs } from "./generate-worker-configs.ts";
 import { killProcessTree } from "./kill-process-tree.ts";
 import { pnpmCommand } from "./pnpm-command.ts";
 import type { ServiceBinding, WranglerBuild } from "./release/manifest-lib.ts";
@@ -98,6 +99,10 @@ function findGatekeepers(parentDir: string): Gatekeeper[] {
     return [];
   }
 }
+
+// The committed wrangler.jsonc files are generated from cloudflare.config.ts; regenerate them so a
+// TypeScript edit reaches `pnpm dev-server` without a separate step.
+await generateWorkerConfigs({ check: false });
 
 const gatekeepers = findGatekeepers(PACKAGES_DIR);
 
@@ -467,6 +472,7 @@ function devBuildConfig(build: WranglerBuild | undefined, pkgDir: string): Wrang
 // Maps a gatekeeper name to the shared env vars whose values seed its CLIENT_ID / CLIENT_SECRET.
 const SHARED_GATEKEEPER_CREDS: Record<string, { id: string; secret: string }> = {
   "gatekeeper-github": { id: "GITHUB_CLIENT_ID", secret: "GITHUB_CLIENT_SECRET" },
+  "gatekeeper-gitlab": { id: "GITLAB_CLIENT_ID", secret: "GITLAB_CLIENT_SECRET" },
   "gatekeeper-google": { id: "GOOGLE_CLIENT_ID", secret: "GOOGLE_CLIENT_SECRET" },
   "gatekeeper-cloudflare": { id: "CLOUDFLARE_OAUTH_CLIENT_ID", secret: "CLOUDFLARE_OAUTH_CLIENT_SECRET" },
   "gatekeeper-supabase": { id: "SUPABASE_CLIENT_ID", secret: "SUPABASE_CLIENT_SECRET" },
@@ -491,6 +497,9 @@ const PASSTHROUGH_GATEKEEPER_VARS: Record<string, string[]> = {
     "MCP_PORTAL_TRUST_ANNOTATIONS", "MCP_PORTAL_HIDDEN_SERVER_IDS", "MCP_ALLOW_INSECURE",
   ],
   "gatekeeper-mcp": ["MCP_ALLOW_INSECURE"],
+  // The instance a self-hosted GitLab gatekeeper talks to, and the Access service token for one
+  // behind Cloudflare Access; unset, it talks to gitlab.com.
+  "gatekeeper-gitlab": ["GITLAB_URL", "GITLAB_API_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"],
 };
 
 for (const gk of gatekeepers) {
