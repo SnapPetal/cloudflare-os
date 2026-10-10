@@ -7,13 +7,16 @@ export default defineGadgetsWorker({
   entrypoint: "src/index.ts",
 
   // The router owns the public origin for customer instances, so it serves the frontend.
-  // `runWorkerFirst` keeps API and gatekeeper prefixes on the worker; everything else falls
-  // through to static assets with SPA fallback.
+  // `runWorkerFirst` keeps API, vector-store, and gatekeeper prefixes on the worker; everything
+  // else falls through to static assets with SPA fallback. `/vector-store` is the private
+  // vector explorer, proxied by the workshop backend.
   assets: {
     notFoundHandling: "single-page-application",
     runWorkerFirst: [
       "/api",
       "/api/*",
+      "/vector-store",
+      "/vector-store/*",
       "/blueprint-screenshot",
       "/blueprint-screenshot/*",
       "/gatekeeper/*",
